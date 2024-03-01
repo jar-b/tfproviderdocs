@@ -12,18 +12,22 @@ const (
 	walkerSectionExample
 	walkerSectionArguments
 	walkerSectionAttributes
+	walkerSectionFunctionArguments
+	walkerSectionSignature
 	walkerSectionTimeouts
 	walkerSectionImport
 )
 
 // Sections represents all expected sections of a resource documentation page
 type Sections struct {
-	Attributes *AttributesSection
-	Arguments  *ArgumentsSection
-	Example    *ExampleSection
-	Import     *ImportSection
-	Timeouts   *TimeoutsSection
-	Title      *TitleSection
+	Attributes        *AttributesSection
+	Arguments         *ArgumentsSection
+	Example           *ExampleSection
+	FunctionArguments *FunctionArgumentsSection
+	Import            *ImportSection
+	Signature         *SignatureSection
+	Timeouts          *TimeoutsSection
+	Title             *TitleSection
 }
 
 // AttributesSection represents a resource attributes section.
@@ -40,6 +44,13 @@ type ExampleSection struct {
 	FencedCodeBlocks []*ast.FencedCodeBlock
 	Heading          *ast.Heading
 	Paragraphs       []*ast.Paragraph
+}
+
+// FunctionArgumentsSection represents a function argument section.
+type FunctionArgumentsSection struct {
+	Heading    *ast.Heading
+	Lists      []*ast.List
+	Paragraphs []*ast.Paragraph
 }
 
 // ImportSection represents a resource import section.
@@ -78,6 +89,13 @@ type SchemaAttributeSection struct {
 	Paragraphs []*ast.Paragraph
 }
 
+// SignatureSection represents a function signature section.
+type SignatureSection struct {
+	FencedCodeBlocks []*ast.FencedCodeBlock
+	Heading          *ast.Heading
+	Paragraphs       []*ast.Paragraph
+}
+
 // TimeoutsSection represents a resource timeouts section.
 type TimeoutsSection struct {
 	FencedCodeBlocks []*ast.FencedCodeBlock
@@ -114,6 +132,8 @@ func sectionsWalker(document ast.Node, source []byte, resourceName string) (*Sec
 				result.Arguments.FencedCodeBlocks = append(result.Arguments.FencedCodeBlocks, node)
 			case walkerSectionAttributes:
 				result.Attributes.FencedCodeBlocks = append(result.Attributes.FencedCodeBlocks, node)
+			case walkerSectionSignature:
+				result.Signature.FencedCodeBlocks = append(result.Signature.FencedCodeBlocks, node)
 			case walkerSectionTimeouts:
 				result.Timeouts.FencedCodeBlocks = append(result.Timeouts.FencedCodeBlocks, node)
 			case walkerSectionImport:
@@ -152,6 +172,17 @@ func sectionsWalker(document ast.Node, source []byte, resourceName string) (*Sec
 				return ast.WalkContinue, nil
 			}
 
+			if result.FunctionArguments == nil && strings.HasPrefix(headingText, "Arguments") {
+				result.FunctionArguments = &FunctionArgumentsSection{
+					Heading: node,
+				}
+
+				walkerSection = walkerSectionFunctionArguments
+				walkerSectionStartingLevel = node.Level
+
+				return ast.WalkContinue, nil
+			}
+
 			if result.Arguments == nil && strings.HasPrefix(headingText, "Argument") {
 				result.Arguments = &ArgumentsSection{
 					Heading: node,
@@ -169,6 +200,17 @@ func sectionsWalker(document ast.Node, source []byte, resourceName string) (*Sec
 				}
 
 				walkerSection = walkerSectionAttributes
+				walkerSectionStartingLevel = node.Level
+
+				return ast.WalkContinue, nil
+			}
+
+			if result.Signature == nil && strings.HasPrefix(headingText, "Signature") {
+				result.Signature = &SignatureSection{
+					Heading: node,
+				}
+
+				walkerSection = walkerSectionSignature
 				walkerSectionStartingLevel = node.Level
 
 				return ast.WalkContinue, nil
@@ -222,6 +264,8 @@ func sectionsWalker(document ast.Node, source []byte, resourceName string) (*Sec
 				}
 
 				result.Attributes.SchemaAttributeLists = append(result.Attributes.SchemaAttributeLists, schemaAttributeList)
+			case walkerSectionFunctionArguments:
+				result.FunctionArguments.Lists = append(result.FunctionArguments.Lists, node)
 			case walkerSectionTimeouts:
 				result.Timeouts.Lists = append(result.Timeouts.Lists, node)
 			}
@@ -237,6 +281,10 @@ func sectionsWalker(document ast.Node, source []byte, resourceName string) (*Sec
 				result.Arguments.Paragraphs = append(result.Arguments.Paragraphs, node)
 			case walkerSectionAttributes:
 				result.Attributes.Paragraphs = append(result.Attributes.Paragraphs, node)
+			case walkerSectionSignature:
+				result.Signature.Paragraphs = append(result.Signature.Paragraphs, node)
+			case walkerSectionFunctionArguments:
+				result.FunctionArguments.Paragraphs = append(result.FunctionArguments.Paragraphs, node)
 			case walkerSectionTimeouts:
 				result.Timeouts.Paragraphs = append(result.Timeouts.Paragraphs, node)
 			case walkerSectionImport:
